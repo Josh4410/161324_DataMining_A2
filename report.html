@@ -333,7 +333,7 @@ display: none;
 
 
 
-<script type="text/javascript" src="report_24023949_files/MathJax.js"></script><style type="text/css">.MathJax_Hover_Frame {border-radius: .25em; -webkit-border-radius: .25em; -moz-border-radius: .25em; -khtml-border-radius: .25em; box-shadow: 0px 0px 15px #83A; -webkit-box-shadow: 0px 0px 15px #83A; -moz-box-shadow: 0px 0px 15px #83A; -khtml-box-shadow: 0px 0px 15px #83A; border: 1px solid #A6D ! important; display: inline-block; position: absolute}
+<style type="text/css">.MathJax_Hover_Frame {border-radius: .25em; -webkit-border-radius: .25em; -moz-border-radius: .25em; -khtml-border-radius: .25em; box-shadow: 0px 0px 15px #83A; -webkit-box-shadow: 0px 0px 15px #83A; -moz-box-shadow: 0px 0px 15px #83A; -khtml-box-shadow: 0px 0px 15px #83A; border: 1px solid #A6D ! important; display: inline-block; position: absolute}
 .MathJax_Menu_Button .MathJax_Hover_Arrow {position: absolute; cursor: pointer; display: inline-block; border: 2px solid #AAA; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; -khtml-border-radius: 4px; font-family: 'Courier New',Courier; font-size: 9px; color: #F0F0F0}
 .MathJax_Menu_Button .MathJax_Hover_Arrow span {display: block; background-color: #AAA; border: 1px solid; border-radius: 3px; line-height: 0; padding: 4px}
 .MathJax_Hover_Arrow:hover {color: white!important; border: 2px solid #CCC!important}
@@ -467,9 +467,6 @@ property.test &lt;- read_csv(<span class="hljs-string">"https://www.massey.ac.nz
 wheat.train &lt;- read_csv(<span class="hljs-string">"https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/wheat_train_val.csv"</span>) |&gt;
   mutate(variety = factor(variety))
 wheat.test &lt;- read_csv(<span class="hljs-string">"https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/wheat_test.csv"</span>)</code></pre>
-<p>Replace <code>YOUR NAME HERE</code> in the author field before
-knitting. Save your final HTML report as
-<code>report_24023949.html</code>.</p>
 <div id="exercise-1-property-value-prediction" class="section level2">
 <h2>Exercise 1: Property Value Prediction</h2>
 <pre class="r"><code class="hljs">names(property.train)</code></pre>
@@ -700,7 +697,6 @@ comp_rmse</code></pre>
 <span class="hljs-comment">#         .lower, .upper,</span>
 <span class="hljs-comment">#         everything())</span>
 
-<span class="hljs-comment">#Submit ex1_24023949.csv as the supplied property_test.csv data with one extra column named .pred.</span>
 pred.rf &lt;- predict(price_per_unit.rf, newdata = property.test)
 
 final.pred.ex1 &lt;- property.test |&gt;
@@ -722,13 +718,9 @@ final.pred.ex1</code></pre>
 ## 10  42.6     2013.          9             1402.              0     25.0
 ## # ℹ 94 more rows
 ## # ℹ 1 more variable: longitude &lt;dbl&gt;</code></pre>
-<pre class="r"><code class="hljs">write_csv(final.pred.ex1, <span class="hljs-string">"ex1_24023949.csv"</span>)
-<span class="hljs-comment">#For each exercise, briefly describe your methodology such as:</span>
+<pre class="r"><code class="hljs">write_csv(final.pred.ex1, <span class="hljs-string">"predictions/property_price_predictions.csv"</span>)
 
-<span class="hljs-comment">#    Exploratory analysis carried out</span>
-<span class="hljs-comment">#    Data processing performed, including justification of how any missingness or unusual observations are handled</span>
-<span class="hljs-comment">#    Modelling techniques tried, including any tuning or variable choices</span>
-<span class="hljs-comment">#    Final model selected, and why</span></code></pre>
+</code></pre>
 <div id="property-value-methodology" class="section level3">
 <h3>1.1 Property Value Methodology</h3>
 <p>Exploratory analysis: Jumped straight into Linear regression,
@@ -1170,9 +1162,7 @@ all_preds |&gt;
 <span class="hljs-comment">#covid.balanced |&gt; count(Status)</span>
 
 
-<span class="hljs-comment">#and your exploratory data analysis of these datasets, does the classification performance make sense?</span>
 
-<span class="hljs-comment"># provide a paragraph concluding what differentiates the wheat varieties. You may support your conclusions with a table or figure.</span>
 bind_rows(
   list(
     lda    = lda.pred |&gt; accuracy(truth = variety, estimate = .pred_class),
@@ -1190,8 +1180,7 @@ bind_rows(
 ## 2 tree_s7     0.974
 ## 3 tree_cc     0.935
 ## 4 forest      0.967</code></pre>
-<pre class="r"><code class="hljs"><span class="hljs-comment"># Submit ex2_24023949.csv as the supplied wheat_test.csv data with one extra column named .pred_class.</span>
-final.pred.ex2 &lt;- wheat.rf |&gt;
+<pre class="r"><code class="hljs">final.pred.ex2 &lt;- wheat.rf |&gt;
   augment(wheat.test)
   
 final.pred.ex2 |&gt; select(.pred_class, everything())</code></pre>
@@ -1228,18 +1217,13 @@ final.pred.ex2 |&gt; select(.pred_class, everything())</code></pre>
 ## # ℹ 44 more rows
 ## # ℹ 5 more variables: kernel_compactness &lt;dbl&gt;, kernel_length &lt;dbl&gt;,
 ## #   kernel_width &lt;dbl&gt;, kernel_asymmetry &lt;dbl&gt;, groove_length &lt;dbl&gt;</code></pre>
-<pre class="r"><code class="hljs">write_csv(final.pred.ex2, <span class="hljs-string">"ex2_24023949.csv"</span>)
+<pre class="r"><code class="hljs">write_csv(final.pred.ex2, <span class="hljs-string">"predictions/wheat_variety_predictions.csv"</span>)
 
 <span class="hljs-comment">## Generative classifiers LDA, KDA, Naive Bayes. (Lecture Week 7)</span>
 <span class="hljs-comment">## Logistic regression and multinomial regression for classification. (Lecture Week 8)</span>
 <span class="hljs-comment">## Classification trees, forests, neural networks and k-nearest neighbour classifiers. (Lecture Week 9)</span>
 <span class="hljs-comment">#</span>
-<span class="hljs-comment">#    Exploratory analysis carried out</span>
-<span class="hljs-comment">#    Data processing performed, including justification of how any missingness or unusual observations are handled</span>
-<span class="hljs-comment">#    Modelling techniques tried, including any tuning or variable choices</span>
-<span class="hljs-comment">#    Final model selected, and why</span>
 
-<span class="hljs-comment">#For Exercise 2, also provide a few concluding sentences about what differentiates the wheat varieties. You may support your conclusions with a table or figure.</span>
 <span class="hljs-keyword">library</span>(rpart.plot)</code></pre>
 <pre><code class="hljs">## Warning: package 'rpart.plot' was built under R version 4.4.3</code></pre>
 <pre class="r"><code class="hljs">rpart.plot(wheat.rp$fit)</code></pre>

@@ -2,7 +2,10 @@
 
 Two supervised learning tasks in R for 161.324 Data Mining at Massey University (Assignment 2, 2026). Graded 34 / 50.
 
-The full knitted report, with code, output and plots, is in [`report.html`](report.html). Download it or open it with an HTML preview to view it.
+- [`analysis.Rmd`](analysis.Rmd) is the R Markdown source, with all code and notes.
+- [`report.html`](report.html) is the knitted report, with output and plots. Download it to view it, since GitHub shows HTML as source.
+
+To re-run it, open `analysis.Rmd` in RStudio and click Knit. The data is read straight from the course URLs, and the predictions are written to `predictions/`.
 
 ## Exercise 1: Property price per unit (regression)
 

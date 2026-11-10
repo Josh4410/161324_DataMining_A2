@@ -1,0 +1,389 @@
+---
+title: "Data Mining: Prediction & Classification"
+subtitle: "161.324 Data Mining, Assignment 2 (2026)"
+author: "Josh Smith"
+output: html_document
+---
+
+```{r setup, echo=TRUE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(broom)
+library(yardstick)
+library(rpart)
+library(randomForest)
+library(discrim)
+
+library(tidymodels)
+library(GGally)
+library(skimr)
+
+# Read in the data
+property.train <- read_csv("https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/property_train_val.csv")
+property.test <- read_csv("https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/property_test.csv")
+wheat.train <- read_csv("https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/wheat_train_val.csv") |>
+  mutate(variety = factor(variety))
+wheat.test <- read_csv("https://www.massey.ac.nz/~jcmarsha/161324/assessment/data/wheat_test.csv")
+```
+
+
+## Exercise 1: Property Value Prediction
+
+```{r}
+names(property.train)
+names(property.test)
+#view(property.train)
+
+
+##### ----- Linear Regression (Lecture Week 4)
+# Linear Regression using all var
+price_per_unit.lm <- lm(price_per_unit ~ ., data = property.train)
+#pred <- predict(price_per_unit.lm, newdata=property.test)
+#predict(price_per_unit.lm, newdata=property.test)
+summary(price_per_unit.lm) # small p-value indicates statistically significant evidence.
+
+#Linear Regression using stepwise for var
+price_per_unit.lm.step <- stats::step(price_per_unit.lm) # namespace conflict stats:: no using namspace like c++??
+#pred.step <- predict(price_per_unit.lm.step, newdata = property.test)
+summary(price_per_unit.lm.step) # small p-value indicates statistically significant evidence.
+
+
+##### Checking price per unit ranges against true values from training data 
+#lm
+augment(price_per_unit.lm,
+        newdata=property.train,
+        interval="prediction") |>
+  ggplot() +
+  geom_linerange(
+    mapping=aes(x=.fitted, ymin=.lower, ymax=.upper)) +
+  geom_point(mapping=aes(x=.fitted, y=price_per_unit),
+    col='red') +
+  labs(x="Predicted price per unit", y="True price per unit", title = "LM")
+
+# lm.stepwise
+augment(price_per_unit.lm.step,
+        newdata=property.train,
+        interval="prediction") |>
+  ggplot() +
+  geom_linerange(
+    mapping=aes(x=.fitted, ymin=.lower, ymax=.upper)) +
+  geom_point(mapping=aes(x=.fitted, y=price_per_unit),
+    col='red') +
+  labs(x="Predicted price per unit", y="True price per unit", title="Lm_stepwise")
+
+
+
+##### ----- Decision Tree (Lecture Week 5)
+price_per_unit.rp01 <- rpart(formula = price_per_unit ~ . , data = property.train, cp=0.01)
+price_per_unit.rp001<- rpart(formula = price_per_unit ~ ., data = property.train, cp = 0.001)
+
+printcp(price_per_unit.rp001) #same as lecture 5 no evidence to prefer trees past 1 split, xerror =1
+
+#visualise tree
+plot(price_per_unit.rp01,
+     compress = TRUE, 
+     margin = 0.1)
+text(price_per_unit.rp01) # Looks unstable aswell! -- should use Random Forest
+
+# R_Forest
+set.seed(5)
+property.train.bs <- slice_sample(
+                   property.train,
+                   n=400,
+                   replace=TRUE)
+
+bind_rows(lst(property.train,
+              property.train.bs),
+          .id="data") |>
+  select(data, price_per_unit,
+           property_age, transit_distance, nearby_stores) |> #skipping lat, long and sale time is only 2 years so skipping
+  pivot_longer(-c(data, price_per_unit)) |>
+  ggplot() +
+  geom_point(aes(x=value, y=price_per_unit),
+             alpha=0.5) +
+  facet_grid(rows=vars(data),
+             cols=vars(name),
+             scales='free_x') +
+  labs(x=NULL) #The distributions of the two datasets are similar.
+
+price_per_unit.rf <- randomForest(price_per_unit ~ ., data = property.train, mtry = 2)
+
+##### ----- Compare RSME
+#property.train |>
+#  mutate(.pred = predict(property.rp, newdata = property.train)) |>
+#  summarise(MSE = mean((price_per_unit - .pred)^2))
+#MSE of prediction for regression tree is 51.535. 
+
+### if MSE with linear model is lower: suggests that the relationship between target and predictors is reasonably linear
+
+# Compare R Squared of models
+#lm <- glance(price_per_unit.lm) |> pull(r.squared)
+#lm_step <- glance(price_per_unit.lm.step) |> pull(r.squared)
+
+comp_rmse <- bind_rows(
+  list(
+    lm      = property.train |> mutate(.pred = predict(price_per_unit.lm,      newdata = property.train)) |> summarise(MSE = sqrt(mean((price_per_unit - .pred)^2))),
+    lm_step = property.train |> mutate(.pred = predict(price_per_unit.lm.step, newdata = property.train)) |> summarise(MSE = sqrt(mean((price_per_unit - .pred)^2))),
+    rpart   = property.train |> mutate(.pred = predict(price_per_unit.rp01,            newdata = property.train)) |> summarise(MSE = sqrt(mean((price_per_unit - .pred)^2))),
+    rf   = property.train |> mutate(.pred = predict(price_per_unit.rf,            newdata = property.train)) |> summarise(MSE = sqrt(mean((price_per_unit - .pred)^2)))
+  ),.id = "Model")
+comp_rmse
+
+#rpart performs better than linear model, regression tree performs better than both (lowest RSME).
+
+
+
+
+# predict price_per_unit for every row in property_test.csv.
+#property.test |>
+#  bind_cols(.pred=pred) |>
+#  select(.pred, everything())
+
+#augment(price_per_unit.lm,
+#        newdata=property.test,
+#        interval="prediction") |>
+#  select( .fitted,
+#         .lower, .upper,
+#         everything())
+
+pred.rf <- predict(price_per_unit.rf, newdata = property.test)
+
+final.pred.ex1 <- property.test |>
+  bind_cols(.pred = pred.rf) |>
+  select(.pred, everything())
+final.pred.ex1
+
+
+write_csv(final.pred.ex1, "predictions/property_price_predictions.csv")
+
+
+
+```
+
+### 1.1 Property Value Methodology
+Exploratory analysis:
+Jumped straight into Linear regression, wouldn't have had to brute force so many different models if I analysed the data before rushing in. 
+
+Data processing:
+Minimal data processing, no unusual observations or missingness found in the property dataset
+
+Model Techniques:
+Linear regression, Decision Trees, and Random Forest Tree
+
+Tuning: 
+(stepwise)[linear regression] remove variables until AIC doesn't go lower, 
+(complexity parameter)[decision tree] min number of observations before a split, 
+(mtry)[forest] number of input variables chosen at each split 
+
+Final Model selected was the random forest, because of it's low RMSE score compared to linear regression and decision trees.
+
+
+## Exercise 2: Wheat Variety Classification
+
+```{r}
+
+##### quickly looking at the data
+wheat.train |> skim()
+#names(wheat.test)
+#view(wheat.train.flt)
+
+#filter outliers
+wheat.train.flt <- wheat.train |> filter(kernel_area < 90)
+
+#ggpairs(glass.train, mapping = aes(col=Type), alpha=0.3) tutorial code
+ggpairs(wheat.train.flt, aes(col = variety, alpha = 0.3))
+# lots show linearly separable, no curving (width v. perimeter for example) -- got excited to rush into LDA
+wheat.train.flt |>
+  ggplot() +
+  geom_point(mapping = aes(x=kernel_width, y=kernel_perimeter, col=variety))
+
+
+##### rushed into using LDA, quickly filtered out 3 outliers and visualise to check
+
+#visualise
+wheat.train.flt |>
+  pivot_longer(
+    cols = c(kernel_area, kernel_perimeter, kernel_compactness,
+             kernel_length, kernel_width, kernel_asymmetry, groove_length),
+    names_to = "feature", values_to = "value") |>
+  ggplot(aes(x = value, y = variety, col = variety)) +
+  geom_jitter(height = 0.1, alpha = 0.75) +
+  facet_wrap(~ feature, scales = "free_x")
+
+
+##### Generative classifiers LDA, KDA, Naive Bayes. (Lecture Week 7) (linear discriminant analysis)
+spec_lda <- discrim_linear()
+fit_lda1 <- spec_lda |>
+  fit(variety ~ ., data=wheat.train.flt)
+fit_lda1 # initial model uses all variables, haven't dialed in bias-variance trade off using step() and AIC scores
+
+#checkl
+lda.pred <- fit_lda1 |> augment(new_data=wheat.train.flt)
+lda.pred |> conf_mat(truth=variety, estimate=.pred_class)
+# a couple Canadians being predicted as kama but otherwise accurate
+lda.pred |> accuracy(truth=variety, estimate=.pred_class)
+# accuracy score is 0.96, seems high.
+
+
+##### Checking the assumptions of LDA (Should've done before)
+# Multicollinearity check 
+wheat.train.flt |>
+  select(-variety) |>
+  cor() |>
+  round(2)
+# severe, especially size features (length, width etc). I either have to drop a multitude of features or use a more appropriate model
+
+#Multivariate normality
+wheat.train.flt |>
+  pivot_longer(cols = -variety, names_to = "feature", values_to = "value") |>
+  ggplot(aes(sample = value)) +
+  stat_qq() + stat_qq_line() +
+  facet_grid(variety ~ feature, scales = "free")
+#holds pretty normal, maybe slight deviation in kernal_asymmetry but nothing severe 
+
+# homogeneity of covariances
+wheat.train.flt |>
+  group_by(variety) |>
+  summarise(across(where(is.numeric), var)) |>
+  pivot_longer(-variety, names_to = "feature", values_to = "variance") |>
+  ggplot(aes(x = variety, y = variance, fill = variety)) +
+  geom_col() +
+  facet_wrap(~ feature, scales = "free_y")
+# Lack of homogeneity of covariances. -> kerenel_area, kernel_length, kernel_perimeter, groove_length, kernel_asymmetry. Only feature similar across all 3 varieties is kernel_width
+
+
+
+# can't use:
+# - Naive Bayes (independence assumption)
+# - multinomial logistic regression (Multicollinearity)
+# - Linear Discriminant Analysis 
+
+# next best fit going forward is probably classification trees / random forest (no class volume imbalance -- no smote) else KDA/KNN (few assumptions) I'm leaving as last resort.
+
+# decision tree //lecture boilerplate
+wheat.rp <- decision_tree(
+  mode = 'classification',
+  min_n = 7 # usually 20 -- performs better with 7 on the ROC curve
+) |>
+  fit(variety ~ ., data = wheat.train.flt)
+
+wheat.rp.pred <- wheat.rp |>
+  augment(wheat.train.flt)
+
+wheat.rp.pred |>
+  conf_mat(truth = variety, estimate = .pred_class)
+
+
+
+# or cost complexity decision tree //lecture boilerplate
+wheat.rp2 <- decision_tree(
+  mode = 'classification',
+  cost_complexity = 0.011 #xerror value
+) |>
+  fit(variety ~ ., data = wheat.train.flt)
+
+wheat.rp2.pred <- wheat.rp2 |>
+  augment(wheat.train.flt)
+
+wheat.rp2.pred |>
+  conf_mat(truth = variety, estimate = .pred_class)
+
+
+
+# forest //lecture boilerplate
+set.seed(1234)
+wheat.rf <- rand_forest(mode = 'classification', mtry = 2) |>
+  fit(variety ~ ., data = wheat.train.flt)
+
+wheat.rf.pred <- wheat.rf |>
+  augment(wheat.train.flt)
+
+wheat.rf.pred |>
+  conf_mat(truth = variety, estimate = .pred_class)
+
+
+all_preds <- bind_rows(
+  list(
+    lda    = lda.pred,
+    tree_s7   = wheat.rp.pred,
+    tree_cc   = wheat.rp2.pred,
+    forest = wheat.rf.pred
+  ),
+  .id = "Model"
+)
+
+## ROC () -- finding best possible thresholds (sensitivity vs specificity) [closest to top left]
+all_preds |>
+  group_by(Model) |>
+  roc_curve(
+    truth = variety,
+    # tidymodels auto-detects .pred_<class> columns for multiclass
+    c(.pred_Canadian, .pred_Kama, .pred_Rosa)
+  ) |>
+  autoplot() +
+  theme(legend.position = 'top')
+
+
+# class imbalance (SMOTE) KNN sampling -- fairly balanced don't need
+#library(themis)
+#set.seed(1234)
+#rec <- recipe(Status ~ ., data=covid.train) |>
+#  step_smotenc(Status,
+#               over_ratio = 1,
+#               skip=TRUE) |>
+#  prep(covid.train)
+#covid.balanced <- rec |> bake(new_data=NULL)
+#covid.balanced |> count(Status)
+
+
+
+bind_rows(
+  list(
+    lda    = lda.pred |> accuracy(truth = variety, estimate = .pred_class),
+    tree_s7   = wheat.rp.pred |> accuracy(truth = variety, estimate = .pred_class),
+    tree_cc  = wheat.rp2.pred |> accuracy(truth = variety, estimate = .pred_class),
+    forest = wheat.rf.pred |> accuracy(truth = variety, estimate = .pred_class) # first choice, good ROC curve, estimate closest to 1
+  ),
+  .id = "Model"
+) |>
+  select(Model, .estimate)
+
+final.pred.ex2 <- wheat.rf |>
+  augment(wheat.test)
+  
+final.pred.ex2 |> select(.pred_class, everything())
+final.pred.ex2
+
+write_csv(final.pred.ex2, "predictions/wheat_variety_predictions.csv")
+
+## Generative classifiers LDA, KDA, Naive Bayes. (Lecture Week 7)
+## Logistic regression and multinomial regression for classification. (Lecture Week 8)
+## Classification trees, forests, neural networks and k-nearest neighbour classifiers. (Lecture Week 9)
+#
+
+library(rpart.plot)
+rpart.plot(wheat.rp$fit)
+
+```
+
+### 2.1 Wheat Variety Methodology
+
+Exploratory analysis:
+Instead of rushing in this time I used a ggpairs plot and a point plot. I've left the example kernel_width against kernel_perimeter since it clearly illustrates the linearly separable, lack of curving of the data making it perfect for LDA.
+
+
+Data processing:
+Using the 3rd plot I found 3 outliers, one in each variety of wheat. Since these observations were unusual I decided to remove them else they would weaken the strength of my prediction model. 
+
+Model Techniques:
+LDA -> assumptions don't really hold
+Classification trees
+Random Forest
+
+Tuning: 
+(cost complexity / min_n)[decision tree] min number of observations before a split, 
+(mtry)[forest] number of input variables chosen at each split 
+
+Final Model selected was the random forest, because of it's good ROC curve, estimate closest to 1
+
+### 2.2 Wheat Variety Explainability
+The main Differentiators for wheat variety are, inorder; groove length < 5.6 , kernal area < 13, and >= 4.9 as shown by the decision tree.
